@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drops Radar</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>">
+<meta name="theme-color" content="#0d0d10">
+<style>
+  /* Commit deliberado ao tema escuro: é a linguagem visual nativa da Twitch, onde os drops vivem. */
+  :root{
+    --bg:#0d0d10; --panel:#17171b; --panel2:#1e1e24; --line:#2a2a32;
+    --txt:#efeff1; --dim:#b0b0bb; --faint:#787885;
+    --purple:#9147ff; --purple-lt:#c9a6ff;
+    --blue:#3ea6ff; --green:#2ec16a; --amber:#f0a83c; --red:#ff5c5c;
+    --radius:14px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  html,body{background:var(--bg);margin:0}
+  *{box-sizing:border-box}
+  body{color:var(--txt);font-family:var(--font);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  ::selection{background:rgba(145,71,255,.35)}
+  :focus-visible{outline:2px solid var(--purple);outline-offset:2px;border-radius:6px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 72px}
+  .preview-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--purple-lt);
+    background:rgba(145,71,255,.12);border:1px solid rgba(145,71,255,.3);padding:4px 10px;border-radius:999px;margin-bottom:14px}
+
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .logo{display:flex;align-items:center;gap:11px}
+  .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--purple);
+    box-shadow:0 0 0 4px rgba(145,71,255,.16);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  h1{font-size:20px;font-weight:700;margin:0;letter-spacing:.2px}
+  .sub{color:var(--faint);font-size:12.5px;margin-top:1px}
+  .spacer{flex:1}
+  .updated{font-size:12.5px;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+  .updated b{color:var(--txt);font-weight:600}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    padding:7px 12px;border-radius:9px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit}
+  .btn:hover{color:var(--txt);border-color:#3a3a42}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0 6px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+  .stat .v{font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .l{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-top:6px}
+  .stat.up .v{color:var(--blue)} .stat.live .v{color:var(--green)}
+  .stat.game .v{color:var(--purple-lt)} .stat.plat .v{color:var(--faint)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0 4px}
+  .segbar{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg{background:transparent;border:none;color:var(--dim);padding:7px 15px;border-radius:999px;
+    font-size:13px;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+  .seg:hover{color:var(--txt)}
+  .seg.on{background:var(--purple);color:#fff;font-weight:600}
+  .seg.on.badges{background:var(--amber);color:#1a1205}
+  .search{margin-left:auto}
+  .search input{background:var(--panel);border:1px solid var(--line);color:var(--txt);
+    padding:8px 13px;border-radius:999px;font-size:13px;width:200px;outline:none;font-family:inherit}
+  .search input:focus{border-color:var(--purple)}
+
+  .banner{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
+    padding:14px 16px;border-radius:10px;margin:18px 0 4px;font-size:13.5px;color:var(--dim)}
+  .banner b{color:var(--txt)}
+  .banner code{background:#000;padding:1px 6px;border-radius:5px;color:#e6d3ff;font-size:12px}
+  .banner .hint{color:var(--faint);font-size:12px;display:block;margin-top:6px;word-break:break-word}
+  .banner.err{border-left-color:var(--red)}
+
+  .section-h{display:flex;align-items:center;gap:9px;margin:28px 0 12px}
+  .section-h .sdot{width:8px;height:8px;border-radius:50%}
+  .section-h.up .sdot{background:var(--blue)} .section-h.live .sdot{background:var(--green)}
+  .section-h h2{font-size:14px;font-weight:700;margin:0;letter-spacing:.2px}
+  .section-h .n{color:var(--faint);font-size:13px;font-variant-numeric:tabular-nums}
+  .rule{flex:1;height:1px;background:var(--line)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(322px,1fr));gap:14px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+    border-radius:var(--radius);padding:15px 15px 14px;display:flex;flex-direction:column;gap:11px;transition:.15s}
+  .card:hover{border-color:#3a3a42;transform:translateY(-1px)}
+  .card.up{--stripe:var(--blue)} .card.live{--stripe:var(--green)}
+  .card.up,.card.live{border-left-color:var(--stripe)}
+  .card:hover.up,.card:hover.live{border-left-color:var(--stripe)}
+  .top{display:flex;gap:12px}
+  .box{width:50px;height:68px;border-radius:7px;flex:none;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#26262e,#1a1a20)}
+  .box .bi{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--faint);font-size:19px;font-weight:700}
+  .box img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+  .ttl{min-width:0}
+  .ttl .game{font-size:11px;color:var(--purple-lt);font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ttl .name{font-size:14.5px;font-weight:600;margin-top:3px;line-height:1.3}
+
+  .pills{display:flex;flex-wrap:wrap;gap:6px}
+  .pill{font-size:11.5px;padding:3px 9px;border-radius:999px;font-weight:600;
+    display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+  .pill .pd{width:6px;height:6px;border-radius:50%}
+  .p-up{background:rgba(62,166,255,.14);color:var(--blue)} .p-up .pd{background:var(--blue)}
+  .p-live{background:rgba(46,193,106,.13);color:var(--green)} .p-live .pd{background:var(--green)}
+  .p-game{background:rgba(145,71,255,.14);color:var(--purple-lt)} .p-game .pd{background:var(--purple)}
+  .p-plat{background:#232329;color:var(--faint)} .p-plat .pd{background:var(--faint)}
+
+  .when{font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .when b{color:var(--txt);font-weight:600}
+
+  .rw-h{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);margin-top:2px}
+  .rewards{display:flex;flex-direction:column;gap:6px;margin-top:1px}
+  .rw{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);
+    padding:5px 10px;border-radius:8px;font-size:12.5px}
+  .rw .rw-img{width:26px;height:26px;border-radius:5px;object-fit:cover;flex:none;background:#000}
+  .rw .rw-ph{width:26px;height:26px;border-radius:5px;flex:none;background:var(--panel);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center}
+  .rw .rw-ph::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--purple);opacity:.65}
+  .rw .rw-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
+  .rw .rw-min{flex:none;color:var(--amber);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .bcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
+    border-radius:12px;padding:13px;display:flex;gap:12px;align-items:flex-start}
+  .bimgs{display:flex;gap:5px;flex:none}
+  .bimgs img{width:42px;height:42px;border-radius:7px;object-fit:contain;background:var(--panel2);border:1px solid var(--line)}
+  .bimgs .bph{width:42px;height:42px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--panel2);font-size:18px}
+  .binfo{min-width:0}
+  .btitle{font-size:14px;font-weight:600;line-height:1.3}
+  .bnote{font-size:12px;color:var(--faint);margin-top:4px;line-height:1.35}
+  .empty{color:var(--faint);font-size:14px;padding:36px 0;text-align:center}
+  footer{margin-top:40px;color:var(--faint);font-size:12px;text-align:center}
+  @media (max-width:560px){ .stats{grid-template-columns:repeat(2,1fr)} .search{margin-left:0;width:100%} .search input{width:100%} }
+  @media (prefers-reduced-motion:reduce){ .logo .dot{animation:none} .card:hover{transform:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="pvtag"></div>
+  <header>
+    <div class="logo">
+      <span class="dot"></span>
+      <div>
+        <h1>Drops Radar</h1>
+        <div class="sub">drops da Twitch — só campanhas abertas a qualquer streamer</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="updated" id="updated">carregando…</div>
+    <button class="btn" id="refresh">Atualizar</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <div class="segbar" id="seg">
+      <button class="seg on" data-v="tudo">Tudo</button>
+      <button class="seg" data-v="upcoming">Em breve</button>
+      <button class="seg" data-v="active">Ativos</button>
+      <button class="seg badges" data-v="badges">Badges</button>
+    </div>
+    <span class="search"><input id="q" type="search" placeholder="buscar jogo…" aria-label="buscar jogo"></span>
+  </div>
+
+  <div id="banner"></div>
+  <div id="content"></div>
+  <div id="badges"></div>
+
+  <footer>atualiza sozinho a cada 5 min · dados via GitHub Actions</footer>
+</div>
+
+<script>
+const H = 3600000, D = 86400000;
+const state = { data:null, preview:false, view:"tudo", q:"" };
+
+// Só é usado quando o arquivo é aberto localmente (file://), pra você ver o layout.
+// Publicado no Pages, o fetch funciona e estes dados NUNCA aparecem.
+const SAMPLE = { updated_at:new Date(Date.now()-4*60000).toISOString(), ok:true, campaigns:[
+  {name:"Rust Twitch Drops — Round 32", game:"Rust", status:"UPCOMING", start_at:new Date(Date.now()+3*D).toISOString(), end_at:new Date(Date.now()+8*D).toISOString(), availability:"open", channels:[], reward_type:"game", required_minutes:180, rewards:[{name:"Frontier Hoodie",minutes:30},{name:"Frontier Pants",minutes:60},{name:"Frontier Boots",minutes:120},{name:"Frontier Gloves",minutes:180}]},
+  {name:"Once Human — Lançamento", game:"Once Human", status:"UPCOMING", start_at:new Date(Date.now()+5*D).toISOString(), end_at:null, availability:"open", channels:[], reward_type:"game", rewards:[{name:"Deviant Skin"},{name:"Backpack"},{name:"Emote Pack"}]},
+  {name:"TwitchCon Viewer Badge", game:"Just Chatting", status:"UPCOMING", start_at:new Date(Date.now()+2*D).toISOString(), end_at:null, availability:"open", channels:[], reward_type:"platform", rewards:[{name:"TwitchCon Badge"}]},
+  {name:"VALORANT Champions Drops", game:"VALORANT", status:"ACTIVE", start_at:null, end_at:new Date(Date.now()+2*D).toISOString(), availability:"open", channels:[], reward_type:"game", rewards:[{name:"Champions Card"},{name:"Player Card"}]},
+  {name:"Marvel Rivals — Season 2", game:"Marvel Rivals", status:"ACTIVE", start_at:null, end_at:new Date(Date.now()+4*D).toISOString(), availability:"open", channels:[], reward_type:"game", rewards:[{name:"Costume"},{name:"Spray"}]},
+  {name:"Dead by Daylight Drops", game:"Dead by Daylight", status:"ACTIVE", start_at:null, end_at:new Date(Date.now()+6*D).toISOString(), availability:"open", channels:[], reward_type:"game", rewards:[{name:"Charm"},{name:"Cosmetic"},{name:"Bloodpoints"}]},
+  {name:"Community Sub Badge", game:"Just Chatting", status:"ACTIVE", start_at:null, end_at:new Date(Date.now()+12*H).toISOString(), availability:"open", channels:[], reward_type:"platform", rewards:[{name:"Sub Badge"}]}
+], badges:[
+  {title:"Final Fantasy XIV Fan Festival 2026 EU", start_at:new Date(Date.now()+2*D).toISOString(), end_at:null, note:null, images:[]},
+  {title:"Marvel Tokon Open Beta", start_at:new Date(Date.now()+2*D).toISOString(), end_at:null, note:"Badge do Spider-Man por subscribe/gift de sub", images:[]}
+]};
+
+const esc = s => (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tmpl = (url,w,h) => url ? url.replace("{width}",w).replace("{height}",h) : "";
+
+function rel(ts){
+  if(!ts) return null;
+  const d=new Date(ts), diff=d-new Date(), a=Math.abs(diff);
+  let t = a<H ? Math.round(a/60000)+" min" : a<D ? Math.round(a/H)+" h" : Math.round(a/D)+" dia"+(Math.round(a/D)>1?"s":"");
+  return { future:diff>0, text:t, date:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) };
+}
+
+function card(c){
+  const up = c.status==="UPCOMING";
+  const r = rel(up ? c.start_at : c.end_at);
+  const endD = up && c.end_at ? rel(c.end_at) : null;
+  const when = r ? (up
+      ? `<div class="when">começa em <b>${r.text}</b> · ${r.date}${endD?` → até ${endD.date}`:""}</div>`
+      : `<div class="when">termina em <b>${r.text}</b> · ${r.date}</div>`)
+    : "";
+
+  const box = tmpl(c.game_box,72,96) || tmpl(c.image,72,96);
+  const initial = ((c.game||"?").trim().charAt(0) || "?").toUpperCase();
+  const boxHtml = `<div class="box"><span class="bi">${esc(initial)}</span>${box?`<img src="${esc(box)}" loading="lazy" onerror="this.remove()">`:""}</div>`;
+
+  const list = (c.rewards||[]).map(x=>{
+    const img = tmpl(x.image,52,52);
+    const thumb = img ? `<img class="rw-img" src="${esc(img)}" loading="lazy" onerror="this.style.display='none'">` : `<span class="rw-ph"></span>`;
+    const m = x.minutes ? `<span class="rw-min">${x.minutes} min</span>` : "";
+    return `<div class="rw">${thumb}<span class="rw-name">${esc(x.name)}</span>${m}</div>`;
+  }).join("");
+  const rewards = list
+    ? `<div class="rw-h">Recompensas${c.required_minutes?` · até ${c.required_minutes} min assistindo`:""}</div><div class="rewards">${list}</div>`
+    : "";
+
+  return `<div class="card ${up?"up":"live"}">
+    <div class="top">
+      ${boxHtml}
+      <div class="ttl">
+        <div class="game">${esc(c.game||"—")}</div>
+        <div class="name">${esc(c.name||"")}</div>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill ${up?"p-up":"p-live"}"><span class="pd"></span>${up?"Em breve":"Ativo"}</span>
+      <span class="pill ${c.reward_type==="game"?"p-game":"p-plat"}"><span class="pd"></span>${c.reward_type==="game"?"Item de jogo":"Badge / plataforma"}</span>
+    </div>
+    ${when}
+    ${rewards}
+  </div>`;
+}
+
+function badgeCard(b){
+  const r = rel(b.start_at);
+  const imgs = (b.images||[]).slice(0,3).map(u=>`<img src="${esc(u)}" loading="lazy" onerror="this.remove()">`).join("")
+    || `<div class="bph">🏷️</div>`;
+  const when = r ? `<div class="when">${r.future?"começa em":"desde"} <b>${r.text}</b> · ${r.date}</div>` : "";
+  return `<div class="bcard">
+    <div class="bimgs">${imgs}</div>
+    <div class="binfo">
+      <div class="btitle">${esc(b.title||"")}</div>
+      ${when}
+      ${b.note?`<div class="bnote">${esc(b.note)}</div>`:""}
+    </div>
+  </div>`;
+}
+
+function passes(c){
+  if(state.view==="badges") return false;
+  if(state.view==="upcoming" && c.status!=="UPCOMING") return false;
+  if(state.view==="active" && c.status!=="ACTIVE") return false;
+  if(state.q && !(((c.game||"")+" "+(c.name||"")).toLowerCase().includes(state.q))) return false;
+  return true;
+}
+
+function section(cls,title,list){
+  if(!list.length) return "";
+  return `<div class="section-h ${cls}"><span class="sdot"></span><h2>${title}</h2><span class="n">${list.length}</span><span class="rule"></span></div>
+          <div class="grid">${list.map(card).join("")}</div>`;
+}
+
+function renderStats(camps){
+  const tiles = [
+    ["up",   camps.filter(c=>c.status==="UPCOMING").length,      "Em breve"],
+    ["live", camps.filter(c=>c.status==="ACTIVE").length,        "Ativos"],
+    ["game", camps.filter(c=>c.reward_type==="game").length,     "Itens de jogo"],
+    ["plat", camps.filter(c=>c.reward_type==="platform").length, "Badges"],
+  ];
+  document.getElementById("stats").innerHTML = tiles
+    .map(([k,v,l])=>`<div class="stat ${k}"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+}
+
+function render(){
+  const d = state.data;
+  const upd = document.getElementById("updated");
+  const banner = document.getElementById("banner");
+  banner.innerHTML = "";
+
+  document.getElementById("pvtag").innerHTML = state.preview
+    ? `<span class="preview-tag">preview local · dados de exemplo (a live vem do checador)</span>` : "";
+
+  if(!d){ document.getElementById("content").innerHTML = `<div class="empty">carregando…</div>`; return; }
+
+  if(d.updated_at){ const r=rel(d.updated_at); upd.innerHTML = `atualizado <b>há ${r?r.text:"—"}</b>`; }
+  else upd.textContent = "ainda sem dados";
+
+  const camps = d.campaigns || [];
+  renderStats(camps);
+
+  if(!d.ok){
+    banner.innerHTML = `<div class="banner err">
+      <b>Não consegui atualizar agora.</b> ${esc(d.error||"fonte de drops indisponível no momento")}
+      ${d.raw_hint?`<span class="hint">${esc(d.raw_hint)}</span>`:""}
+    </div>`;
+  } else if(d.warn){
+    banner.innerHTML = `<div class="banner"><b>Aviso:</b> ${esc(d.warn)}</div>`;
+  }
+
+  const all = camps.filter(passes);
+  const up = all.filter(c=>c.status==="UPCOMING"), live = all.filter(c=>c.status==="ACTIVE");
+  let html = section("up","Em breve",up) + section("live","Ativos agora",live);
+  if(!html && state.view!=="badges") html = `<div class="empty">${d.ok?"Nada por aqui.":"Sem campanhas ainda."}</div>`;
+  document.getElementById("content").innerHTML = html;
+
+  const showBadges = state.view==="tudo" || state.view==="badges";
+  const badges = showBadges ? (d.badges||[]).filter(b => !state.q || (b.title||"").toLowerCase().includes(state.q)) : [];
+  document.getElementById("badges").innerHTML = badges.length
+    ? `<div class="section-h"><span class="sdot" style="background:var(--amber)"></span><h2>Badges chegando</h2><span class="n">${badges.length}</span><span class="rule"></span></div>
+       <div class="bgrid">${badges.map(badgeCard).join("")}</div>`
+    : (state.view==="badges" ? `<div class="empty">Nenhuma badge chegando no momento.</div>` : "");
+}
+
+async function load(){
+  // Local (file://) nunca tem dado real -> mostra o layout com dados de exemplo.
+  if(location.protocol === "file:"){ state.data = SAMPLE; state.preview = true; render(); return; }
+  try{
+    const res = await fetch("data/drops.json?t="+Date.now(), {cache:"no-store"});
+    state.data = await res.json();
+    state.preview = false;
+  }catch(e){
+    state.data = {ok:false, error:"Não achei o data/drops.json (o checador ainda não rodou?)."};
+  }
+  render();
+}
+
+document.getElementById("seg").addEventListener("click", e=>{
+  const b=e.target.closest(".seg"); if(!b) return;
+  state.view=b.dataset.v;
+  document.querySelectorAll("#seg .seg").forEach(x=>x.classList.toggle("on", x===b));
+  render();
+});
+document.getElementById("q").addEventListener("input", e=>{ state.q=e.target.value.trim().toLowerCase(); render(); });
+document.getElementById("refresh").addEventListener("click", load);
+
+load();
+setInterval(load, 5*60*1000);
+</script>
+</body>
+</html>
